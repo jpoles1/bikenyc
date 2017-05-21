@@ -1,0 +1,244 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="leaflet.css" />
+    <link rel="stylesheet" href="PruneCluster.css" />
+    <link rel="stylesheet" href="nouislider.min.css" />
+    <link rel="stylesheet" href="tabs.css" />
+    <link rel="stylesheet" href="main.css" />
+    <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+    <script src="leaflet.js"></script>
+    <script src="PruneCluster.js"></script>
+    <script src="nouislider.min.js"></script>
+    <script src="wNumb.js"></script>
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-7927025-12', 'auto');
+      ga('send', 'pageview');
+
+    </script>
+    <title>NYC Interactive Bike Accident Map</title>
+    <script>
+      var pruneCluster = new PruneClusterForLeaflet();
+      var markers = {};
+      var DoW = ["Mon", "Tues", "Wed", "Thurs", "Fri", "Sat", "Sun"];
+      var active_violations = [];
+      var hour_low=0
+      var hour_high=24;
+      var DoW_low = 0;
+      var DoW_high = 6;
+      $(function(){
+        //Setup leaflet map
+        var houstonmap = L.map('houstonmap').setView([40.7831, -73.9712], 12);
+          L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(houstonmap);
+        //Fetch json ticket data
+        $.getJSON("accidents.json", function(ticket_coords){
+          function onlyUnique(value, index, self) {
+              return self.indexOf(value) === index;
+          }
+          violations = Object.keys(ticket_coords).map(function(x){return ticket_coords[x]["contributing_factor_vehicle_1"]}).filter(onlyUnique)
+          year_list = Object.keys(ticket_coords).map(function(x){return parseInt(ticket_coords[x]["year"])}).filter(onlyUnique)
+          violation_boxes = [];
+          for(violation in violations){
+            violation_name = violations[violation]
+            $("#violation-list").append("<input type='checkbox' value="+violation+" checked='checked'>"+violation_name+"</input><br><div class='check-spacer'></div>");
+            active_violations.push(violation_name);
+          }
+          $("#violation-list").append("<br><div class='check-spacer'></div>")
+          $('#violation-list input').click(function(){
+            updateViolations();
+            $('#violation-select button').attr("clicks", 1);
+            $('#violation-select button').html('Uncheck All');
+          })
+
+          //Create ticket dict and register markers with clustering plugin
+          for(ticket_id in ticket_coords){
+            var entry = ticket_coords[ticket_id];
+            markers[ticket_id] = new PruneCluster.Marker(entry["latitude"], entry["longitude"]);
+            markers[ticket_id].hour = Math.floor(entry["time"])
+            markers[ticket_id].DoW = entry["DoW"]
+            markers[ticket_id].year = parseInt(entry["year"])
+            markers[ticket_id].reason = entry["contributing_factor_vehicle_1"];
+            markers[ticket_id].filtered = false;
+            markers[ticket_id].data.popup = "<b>Cause: "+markers[ticket_id].reason+"</b><br>"+DoW[markers[ticket_id].DoW]+" at "+Math.floor(entry["time"])+":"+Math.floor(entry["time"]%1*60)+"<br>";
+            pruneCluster.RegisterMarker(markers[ticket_id]);
+          }
+          //Add everything to the map
+          houstonmap.addLayer(pruneCluster);
+          pruneCluster.ProcessView();
+          //Setup time-range slider
+          var time_range = document.getElementById('timeslider');
+          noUiSlider.create(time_range, {
+            start: [ 0, 24 ],
+            range: { min: 0, max: 24 },
+            step: 1,
+            margin: 1,
+            connect: true,
+            direction: 'rtl',
+            orientation: 'vertical',
+            behaviour: 'tap-drag', // Move handle on tap, bar is draggable
+            pips: {
+              mode: 'steps',
+              filter: function(){return 1;},
+              format: wNumb({
+                postfix: ':00'
+              })
+            }
+          });
+          //Day of Week slider
+          var dow_range = document.getElementById('dowslider');
+          noUiSlider.create(dow_range, {
+            start: [ 0, 6 ],
+            range: { min: 0, max: 6 },
+            step: 1,
+            margin: 0,
+            connect: true,
+            direction: 'rtl',
+            orientation: 'vertical',
+            behaviour: 'tap-drag', // Move handle on tap, bar is draggable
+            pips: {
+              mode: 'steps',
+              filter: function(){return 1;},
+            }
+          });
+          //Rename DoW numbers to abbreviations
+          $('#dowslider .noUi-value-vertical').each(function(){
+            var val = $(this).html();
+            val = DoW[parseInt(val)];
+            $(this).html(val);
+          });
+          //Year slider
+          var year_range = document.getElementById('yearslider');
+          var min_year = 2012
+          var year_low = min_year;
+          var max_year = year_list[0]
+          var year_high = max_year;
+          noUiSlider.create(year_range, {
+            start: [min_year, max_year],
+            range: { min: min_year, max: max_year },
+            step: 1,
+            margin: 0,
+            connect: true,
+            direction: 'rtl',
+            orientation: 'vertical',
+            behaviour: 'tap-drag', // Move handle on tap, bar is draggable
+            pips: {
+              mode: 'steps',
+              filter: function(){return 1;},
+            }
+          });
+          //Setup listener functions
+          filter_markers = function(){
+            for(markerid in markers){
+              var entity = markers[markerid];
+              if(entity.hour >= hour_low && entity.hour <= hour_high && entity.DoW >= DoW_low && entity.DoW <= DoW_high && entity.year >= year_low && entity.year <= year_high && $.inArray(entity.reason, active_violations)!=-1){
+                  entity.filtered = false;
+              }
+              else{
+                entity.filtered = true;
+              }
+            }
+            pruneCluster.ProcessView();
+          }
+          time_range.noUiSlider.on('set', function(values){
+            hour_low = parseInt(values[0]);
+            hour_high = parseInt(values[1]);
+            filter_markers();
+          });
+          dow_range.noUiSlider.on('set', function(values){
+            DoW_low = parseInt(values[0]);
+            DoW_high = parseInt(values[1]);
+            filter_markers();
+          });
+          year_range.noUiSlider.on('set', function(values){
+            year_low = parseInt(values[0]);
+            year_high = parseInt(values[1]);
+            filter_markers();
+          });
+          $('#violation-select button').click(function() {
+            var clicks = $(this).attr('clicks');
+            if (clicks==0) {
+              $('#violation-list input').prop("checked", true);
+              $(this).html('Uncheck All');
+            } else {
+              $('#violation-list input').prop('checked', false);
+              $(this).html('Check All');
+            }
+            $(this).attr("clicks", 1-clicks);
+            updateViolations();
+          });
+          updateViolations = function(){
+            active_violations = [];
+            $("#violation-list input").each(function(){
+              if($(this).prop("checked")){
+                active_violations.push(violations[parseInt($(this).val())]);
+              }
+            });
+            filter_markers();
+          }
+          //tab menu events
+          $(".tabs-menu a").click(function(event) {
+            event.preventDefault();
+            $(this).parent().addClass("current");
+            $(this).parent().siblings().removeClass("current");
+            var tab = $(this).attr("href");
+            $(".tab-content").not(tab).css("display", "none");
+            $(tab).fadeIn();
+          })
+        })
+      });
+    </script>
+  </head>
+  <body>
+    <div id="container">
+      <h2>NYC Interactive Bike Accident Map</h2>
+      <div id="map-container">
+        <div id="houstonmap"></div>
+      </div>
+      <div id="attribution">
+        &copy; <a href="http://osm.org/copyright" target="_blank">OpenStreetMap</a> with <a href="https://github.com/SINTEF-9012/PruneCluster" target="_blank">PruneCluser</a>.
+        Icons courtesy of <a href="https://icons8.com/icon/14874/Triangular-Bandage">Icons8.</a>
+        More info about this <a href="https://data.cityofnewyork.us/Public-Safety/NYPD-Motor-Vehicle-Collisions/h9gi-nx95">data</a> can be found in my github <a href="https://github.com/jpoles1/bikenyc/">repository.</a>
+      </div>
+      <div id="interface">
+        <div style="position: relative;">
+          <div id="tabs-container">
+            <ul class="tabs-menu">
+              <li class="current"><a href="#tab-1">Time</a></li>
+              <li><a href="#tab-2">DoW</a></li>
+              <li><a href="#tab-3">Year</a></li>
+              <li><a href="#tab-4">Reason</a></li>
+            </ul>
+            <div class="tab">
+                <div id="tab-1" class="tab-content">
+                  <div class="slider-title">Filter by Time of Day:</div>
+                  <div id="timeslider" class="slider"></div>
+                </div>
+                <div id="tab-2" class="tab-content">
+                  <div class="slider-title">Filter by Day of Week:</div>
+                  <div id="dowslider" class="slider"></div>
+                </div>
+                <div id="tab-3" class="tab-content">
+                  <div class="slider-title">Filter by Year:</div>
+                  <div id="yearslider" class="slider"></div>
+                </div>
+                <div id="tab-4" class="tab-content">
+                  <div id="violation-select">
+                    <h3>Filter on Violation:</h3>
+                    <button type="button" clicks=1>Uncheck All</button>
+                    <br>
+                    <br>
+                    <form id="violation-list">
+
+                    </form>
+                  </div>
+                </div>
+            </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,94 @@
+h2{
+  padding-left: 10px;
+}
+body{
+  background-color: #333;
+  padding: 0px;
+  margin: 0;
+  font-family: arial;
+  color: #ddd;
+}
+#container{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+#houstonmap{
+  width: 100%;
+  height: 100%;
+  color: black;
+}
+#map-container{
+  width: 70%;
+  height: 90%;
+  color: black;
+}
+#attribution{
+  font-size: 11px;
+}
+#attribution a{
+  color: white
+}
+#interface{
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 29%;
+  padding-top: 10px;
+}
+#control-block{
+  display: inline;
+  width: 70%;
+}
+.slider{
+  height: 80%;
+  margin: auto;
+  margin-top: 15px;
+}
+#violation-select{
+  height: 80%;
+  text-align: center;
+}
+#violation-list{
+  height: 100%;
+  padding-bottom: 40px;
+  overflow-y: scroll;
+  font-size: 15pt;
+}
+#violation-select button{
+  font-size: 16pt;
+}
+.check-spacer{
+  margin-bottom: 15px;
+}
+#violation-list input{
+  margin-bottom: 2px;
+  width: 18px;
+  height: 18px;
+}
+@media (max-height: 600px){
+  h2{
+    margin-bottom: 5px;
+  }
+  .slider{
+    height: 75%;
+    top: 20%;
+  }
+}
+.slider-title{
+  font-weight: bold;
+  font-size: 18pt;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+}
+.leaflet-popup-content{
+  text-align: center;
+}
+.leaflet-control-attribution{
+  background-color: #333 !important;
+  color: #fff !important;
+  opacity: .9;
+}
