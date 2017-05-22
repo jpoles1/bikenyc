@@ -47,23 +47,23 @@ body{
   margin: auto;
   margin-top: 15px;
 }
-#violation-select{
+#violation-select, #other-settings{
   height: 80%;
   text-align: center;
 }
-#violation-list{
+.form-list{
   height: 100%;
   padding-bottom: 40px;
   overflow-y: scroll;
   font-size: 15pt;
 }
-#violation-select button{
+#violation-select button, #other-settings button{
   font-size: 16pt;
 }
 .check-spacer{
   margin-bottom: 15px;
 }
-#violation-list input{
+.form-list input{
   margin-bottom: 2px;
   width: 18px;
   height: 18px;
