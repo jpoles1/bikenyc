@@ -31,34 +31,36 @@
       var iconSize = [50, 50]
       var mortality_icon = L.icon({iconUrl: "images/mortality.png", iconSize})
       var injury_icon = L.icon({iconUrl: "images/injury.png", iconSize})
-      var active_violations = [];
+      var active_causes = [];
       var only_fatalities = 0;
+      var minnum_injury = 0;
+      var minnum_mortality = 0;
       var hour_low=0
       var hour_high=24;
       var DoW_low = 0;
       var DoW_high = 6;
       $(function(){
         //Setup leaflet map
-        var houstonmap = L.map('houstonmap', {fullscreenControl: true}).setView([40.7831, -73.9712], 12);
+        var houstonmap = L.map('houstonmap', {fullscreenControl: true, attributionControl: false}).setView([40.7831, -73.9712], 12);
         L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(houstonmap);
         //Fetch json ticket data
         $.getJSON("accidents.json", function(ticket_coords){
           function onlyUnique(value, index, self) {
               return self.indexOf(value) === index;
           }
-          violations = Object.keys(ticket_coords).map(function(x){return ticket_coords[x]["contributing_factor_vehicle_1"]}).filter(onlyUnique)
+          causes = Object.keys(ticket_coords).map(function(x){return ticket_coords[x]["contributing_factor_vehicle_1"]}).filter(onlyUnique)
           year_list = Object.keys(ticket_coords).map(function(x){return parseInt(ticket_coords[x]["year"])}).filter(onlyUnique)
-          violation_boxes = [];
-          for(violation in violations){
-            violation_name = violations[violation]
-            $("#violation-list").append("<input type='checkbox' value="+violation+" checked='checked'>"+violation_name+"</input><br><div class='check-spacer'></div>");
-            active_violations.push(violation_name);
+          cause_boxes = [];
+          for(cause in causes){
+            cause_name = causes[cause]
+            $("#cause-list").append("<label class='chk'><input type='checkbox' value="+cause+" checked='checked'>"+cause_name+"</label><br><div class='check-spacer'></div>");
+            active_causes.push(cause_name);
           }
-          $("#violation-list").append("<br><div class='check-spacer'></div>")
-          $('#violation-list input').click(function(){
-            updateViolations();
-            $('#violation-select button').attr("clicks", 1);
-            $('#violation-select button').html('Uncheck All');
+          $("#cause-list").append("<br><div class='check-spacer'></div>")
+          $('#cause-list input').click(function(){
+            updateCauses();
+            $('#cause-select button').attr("clicks", 1);
+            $('#cause-select button').html('Uncheck All');
           })
           //Create ticket dict and register markers with clustering plugin
           var addressPoints = [];
@@ -70,8 +72,10 @@
             markers[ticket_id].DoW = entry["DoW"]
             markers[ticket_id].year = parseInt(entry["year"])
             markers[ticket_id].reason = entry["contributing_factor_vehicle_1"];
-            markers[ticket_id].filtered = false;
             markers[ticket_id].category = entry["number_of_cyclist_killed"] > 0 ? 1 : 0;
+            markers[ticket_id].mortality = entry["number_of_cyclist_killed"]
+            markers[ticket_id].injury = entry["number_of_cyclist_injured"]
+            markers[ticket_id].filtered = false;
             markers[ticket_id].data.icon = markers[ticket_id].category ? mortality_icon : injury_icon;
             markers[ticket_id].data.popup = "<b>Vehicle 1: </b>"+entry["vehicle_type_code1"]+"<br>"+
             "<b>Vehicle 2: </b>"+entry["vehicle_type_code2"]+"<br>"+
@@ -152,8 +156,9 @@
               valid_hour = entity.hour >= hour_low && entity.hour <= hour_high
               valid_dow =  entity.DoW >= DoW_low && entity.DoW <= DoW_high
               valid_year = entity.year >= year_low && entity.year <= year_high
-              valid_reason = $.inArray(entity.reason, active_violations)!=-1
-              if(valid_hour && valid_dow && valid_year && valid_reason && entity.category == only_fatalities){
+              valid_reason = $.inArray(entity.reason, active_causes)!=-1
+              valid_outcome = entity.injury >= minnum_injury && entity.mortality >= minnum_mortality && entity.category >= only_fatalities
+              if(valid_hour && valid_dow && valid_year && valid_reason && valid_outcome){
                   entity.filtered = false;
               }
               else{
@@ -177,29 +182,31 @@
             year_high = parseInt(values[1]);
             filter_markers();
           });
-          $('#violation-select button').click(function() {
+          $('#cause-select button').click(function() {
             var clicks = $(this).attr('clicks');
             if (clicks==0) {
-              $('#violation-list input').prop("checked", true);
+              $('#cause-list input').prop("checked", true);
               $(this).html('Uncheck All');
             } else {
-              $('#violation-list input').prop('checked', false);
+              $('#cause-list input').prop('checked', false);
               $(this).html('Check All');
             }
             $(this).attr("clicks", 1-clicks);
-            updateViolations();
+            updateCauses();
           });
           $('#other-settings input').click(function(){
-            updateViolations();
+            updateCauses();
           })
-          updateViolations = function(){
-            active_violations = [];
-            $("#violation-list input").each(function(){
+          updateCauses = function(){
+            active_causes = [];
+            $("#cause-list input").each(function(){
               if($(this).prop("checked")){
-                active_violations.push(violations[parseInt($(this).val())]);
+                active_causes.push(causes[parseInt($(this).val())]);
               }
             });
             only_fatalities = $("#other-settings #fatal-accidents").prop("checked")
+            minnum_injury = $("#num-injury").val()
+            minnum_mortality = $("#num-mortality").val()
             filter_markers();
           }
           //tab menu events
@@ -223,51 +230,59 @@
         <div id="houstonmap"></div>
       </div>
       <div id="attribution">
-        &copy; <a href="http://osm.org/copyright" target="_blank">OpenStreetMap</a> with <a href="https://github.com/SINTEF-9012/PruneCluster" target="_blank">PruneCluser</a>.
-        Icons courtesy of <a href="https://icons8.com/icon/14874/Triangular-Bandage">Icons8.</a>
-        More info about this <a href="https://data.cityofnewyork.us/Public-Safety/NYPD-Motor-Vehicle-Collisions/h9gi-nx95">data</a> can be found in my github <a href="https://github.com/jpoles1/bikenyc/">repository.</a>
+        <a href="http://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> |
+        &copy; <a href="http://osm.org/copyright" target="_blank">OpenStreetMap</a> with <a href="https://github.com/SINTEF-9012/PruneCluster" target="_blank">PruneCluser</a>
+        | Icons courtesy of <a href="https://icons8.com/icon/14874/Triangular-Bandage">Icons8</a>
+        | More info about this <a href="https://data.cityofnewyork.us/Public-Safety/NYPD-Motor-Vehicle-Collisions/h9gi-nx95">data</a> can be found in my github <a href="https://github.com/jpoles1/bikenyc/">repository.</a>
       </div>
       <div id="interface">
         <div style="position: relative;">
           <div id="tabs-container">
             <ul class="tabs-menu">
-              <li class="current"><a href="#tab-1">Time</a></li>
-              <li><a href="#tab-2">DoW</a></li>
-              <li><a href="#tab-3">Year</a></li>
-              <li><a href="#tab-4">Reason</a></li>
-              <li><a href="#tab-5">Other</a></li>
+              <li class="current" ><a href="#tab-1">Time</a></li>
+              <li><a href="#tab-2">Outcome</a></li>
+              <li><a href="#tab-3">Cause</a></li>
+              <li><a href="#tab-4">DoW</a></li>
+              <li><a href="#tab-5">Year</a></li>
             </ul>
             <div class="tab">
-                <div id="tab-1" class="tab-content">
-                  <div class="slider-title">Filter by Time of Day:</div>
-                  <div id="timeslider" class="slider"></div>
-                </div>
-                <div id="tab-2" class="tab-content">
-                  <div class="slider-title">Filter by Day of Week:</div>
-                  <div id="dowslider" class="slider"></div>
-                </div>
-                <div id="tab-3" class="tab-content">
-                  <div class="slider-title">Filter by Year:</div>
-                  <div id="yearslider" class="slider"></div>
-                </div>
-                <div id="tab-4" class="tab-content">
-                  <div id="violation-select">
-                    <h3>Filter on Violation:</h3>
-                    <button type="button" clicks=1>Uncheck All</button>
-                    <br>
-                    <br>
-                    <form id="violation-list" class="form-list">
+              <div id="tab-1" class="tab-content">
+                <div class="slider-title">Filter by Time of Day:</div>
+                <div id="timeslider" class="slider"></div>
+              </div>
+              <div id="tab-2" class="tab-content">
+                <div class="slider-title">Other Filters:</div>
+                <form id="other-settings" class="form-list">
+                  Number of Mortalities >= <input type="number" id="num-mortality" class="numsel" value=0 min=0>
+                  <br><div class='check-spacer'></div>
+                  Number of Injuries >= <input type="number" id="num-injury" class="numsel" value=0 min=0>
+                  <br><div class='check-spacer'></div>
+                  <label class="chk"><input type='checkbox' id="fatal-accidents">Only Fatal Accidents</input>
+                  <br><sup><i>(Same as setting # of Mortalities >= 1)</i></sup></label>
+                  <br><div class='check-spacer'></div>
+                </form>
+              </div>
+              <div id="tab-3" class="tab-content">
+                <div id="cause-select">
+                  <h3>Filter on Cause of Accident:</h3>
+                  <button type="button" clicks=1>Uncheck All</button>
+                  <br>
+                  <br>
+                  <form id="cause-list" class="form-list">
 
-                    </form>
-                  </div>
-                </div>
-                <div id="tab-5" class="tab-content">
-                  <div class="slider-title">Other Filters:</div>
-                  <form id="other-settings" class="form-list">
-                    <input type='checkbox' id="fatal-accidents">Only Fatal Accidents</input><br><div class='check-spacer'></div>
                   </form>
                 </div>
+              </div>
+              <div id="tab-4" class="tab-content">
+                <div class="slider-title">Filter by Day of Week:</div>
+                <div id="dowslider" class="slider"></div>
+              </div>
+              <div id="tab-5" class="tab-content">
+                <div class="slider-title">Filter by Year:</div>
+                <div id="yearslider" class="slider"></div>
+              </div>
             </div>
+          </div>
         </div>
       </div>
     </div>

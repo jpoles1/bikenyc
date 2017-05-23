@@ -47,7 +47,7 @@ body{
   margin: auto;
   margin-top: 15px;
 }
-#violation-select, #other-settings{
+#cause-select, #other-settings{
   height: 80%;
   text-align: center;
 }
@@ -57,11 +57,23 @@ body{
   overflow-y: scroll;
   font-size: 15pt;
 }
-#violation-select button, #other-settings button{
+#cause-select button, #other-settings button{
   font-size: 16pt;
 }
 .check-spacer{
   margin-bottom: 15px;
+}
+.numsel{
+  height: 30px !important;
+  width: 40px !important;
+  font-size: 15pt;
+  padding-left: 5px;
+}
+.chk{
+  cursor: pointer;
+}
+.chk input{
+  margin-right: 5px;
 }
 .form-list input{
   margin-bottom: 2px;
